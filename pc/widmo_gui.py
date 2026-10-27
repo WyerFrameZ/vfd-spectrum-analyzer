@@ -1,8 +1,8 @@
-"""Analizator VFD - okno programu.
+"""VFD Spectrum Analyzer - GUI.
 
-Instalacja:  pip install pyaudiowpatch pyserial numpy customtkinter pystray pillow
-Uruchomienie: pythonw widmo_gui.py        (--min = start schowany w zasobniku)
-Zamknięcie okna chowa program do zasobnika (ikona przy zegarze) - tam jest „Zakończ”.
+Install: pip install pyaudiowpatch pyserial numpy customtkinter pystray pillow
+Run:     pythonw widmo_gui.py        (--min = start hidden in the tray)
+Closing the window hides the app to the tray; "Quit" is in the tray icon menu.
 """
 import json, os, socket, sys
 import customtkinter as ctk
@@ -10,7 +10,7 @@ import pystray
 from PIL import Image, ImageDraw
 from silnik import APP, AUTO, DOMYSLNE, JASNOSCI, USTAWIENIA, Silnik, kolumny, lista_portow
 
-PREFIKS_APP = "Program: "     # na liście "Dźwięk z"; w ustawieniach zapisane jako "app:nazwa.exe"
+PREFIKS_APP = "App: "     # na liście "Dźwięk z"; w ustawieniach zapisane jako "app:nazwa.exe"
 
 
 def audio_na_liste(u):
@@ -23,7 +23,7 @@ def audio_z_listy(v):
 KATALOG = os.path.dirname(os.path.abspath(__file__))
 PLIK_USTAWIEN = os.path.join(KATALOG, "ustawienia.json")
 AUTOSTART = os.path.join(os.environ["APPDATA"], r"Microsoft\Windows\Start Menu\Programs\Startup",
-                         "Analizator VFD.vbs")
+                         "VFD Spectrum Analyzer.vbs")
 
 # wygląd VFD
 TLO = "#050b0a"
@@ -107,13 +107,13 @@ class Okno(ctk.CTk):
     def __init__(self, silnik, schowane):
         super().__init__()
         self.s = silnik
-        self.title("Analizator VFD")
+        self.title("VFD Spectrum Analyzer")
         self.resizable(False, False)
         self.protocol("WM_DELETE_WINDOW", self.schowaj)
 
         naglowek = ctk.CTkFrame(self, fg_color="transparent")
         naglowek.pack(fill="x", padx=20, pady=(16, 6))
-        ctk.CTkLabel(naglowek, text="Analizator VFD", font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
+        ctk.CTkLabel(naglowek, text="VFD Spectrum Analyzer", font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
         self.lbl_port = ctk.CTkLabel(naglowek, text="", font=ctk.CTkFont(size=13))
         self.lbl_port.pack(side="right")
         self.kropka_port = ctk.CTkLabel(naglowek, text="●", font=ctk.CTkFont(size=16))
@@ -135,13 +135,13 @@ class Okno(ctk.CTk):
         def etykieta(tekst):
             ctk.CTkLabel(panel, text=tekst, anchor="w").grid(row=r, column=0, sticky="w", padx=(16, 12), pady=8)
 
-        etykieta("Jasność")
+        etykieta("Brightness")
         self.jas = ctk.CTkSegmentedButton(panel, values=[f"{p} %" for p in JASNOSCI], command=self.zmien_jasnosc)
         self.jas.set(f"{JASNOSCI[self.s.u['jasnosc']]} %")
         self.jas.grid(row=r, column=1, columnspan=2, sticky="ew", padx=(0, 16))
         r += 1
 
-        etykieta("Czułość")
+        etykieta("Sensitivity")
         self.czul = ctk.CTkSlider(panel, from_=60, to=20, number_of_steps=40, command=self.zmien_czulosc)
         self.czul.set(self.s.u["zakres_db"])
         self.czul.grid(row=r, column=1, sticky="ew")
@@ -149,7 +149,7 @@ class Okno(ctk.CTk):
         self.lbl_czul.grid(row=r, column=2, padx=(8, 16))
         r += 1
 
-        etykieta("Opadanie")
+        etykieta("Decay")
         self.spad = ctk.CTkSlider(panel, from_=0.15, to=1.5, number_of_steps=27, command=self.zmien_spadek)
         self.spad.set(self.s.u["spadek"])
         self.spad.grid(row=r, column=1, sticky="ew")
@@ -157,21 +157,21 @@ class Okno(ctk.CTk):
         self.lbl_spad.grid(row=r, column=2, padx=(8, 16))
         r += 1
 
-        etykieta("Układ")
-        self.lustro = ctk.CTkSwitch(panel, text="Basy w środku (lustro)", command=self.zmien_lustro)
+        etykieta("Layout")
+        self.lustro = ctk.CTkSwitch(panel, text="Bass in the middle (mirrored)", command=self.zmien_lustro)
         if self.s.u["lustro"]:
             self.lustro.select()
         self.lustro.grid(row=r, column=1, columnspan=2, sticky="w")
         r += 1
 
-        etykieta("Dźwięk z")
+        etykieta("Audio source")
         wiersz = ctk.CTkFrame(panel, fg_color="transparent")
         wiersz.grid(row=r, column=1, columnspan=2, sticky="ew", padx=(0, 16))
         self.audio = ctk.CTkOptionMenu(wiersz, values=[DOMYSLNE], width=330, dynamic_resizing=False,
                                        command=lambda v: self.zmien(audio=audio_z_listy(v)))
         self.audio.set(audio_na_liste(self.s.u["audio"]))
         self.audio.pack(side="left")
-        ctk.CTkButton(wiersz, text="Odśwież", width=80, command=self.s.odswiez_audio).pack(side="left", padx=8)
+        ctk.CTkButton(wiersz, text="Refresh", width=80, command=self.s.odswiez_audio).pack(side="left", padx=8)
         r += 1
 
         etykieta("Arduino")
@@ -180,16 +180,16 @@ class Okno(ctk.CTk):
         self.port = ctk.CTkOptionMenu(wiersz, values=[AUTO], width=330, dynamic_resizing=False,
                                       command=lambda v: self.zmien(port=v.split(" – ")[0]))
         self.port.pack(side="left")
-        ctk.CTkButton(wiersz, text="Odśwież", width=80, command=self.odswiez_porty).pack(side="left", padx=8)
+        ctk.CTkButton(wiersz, text="Refresh", width=80, command=self.odswiez_porty).pack(side="left", padx=8)
         r += 1
 
-        self.autostart = ctk.CTkCheckBox(panel, text="Uruchamiaj razem z Windows (schowany przy zegarze)",
+        self.autostart = ctk.CTkCheckBox(panel, text="Start with Windows (hidden in the tray)",
                                          command=self.zmien_autostart)
         if os.path.exists(AUTOSTART):
             self.autostart.select()
         self.autostart.grid(row=r, column=0, columnspan=3, sticky="w", padx=16, pady=(8, 14))
 
-        ctk.CTkLabel(self, text="Zamknięcie okna chowa program do zasobnika (ikona przy zegarze).",
+        ctk.CTkLabel(self, text="Closing the window hides the app to the tray (icon next to the clock).",
                      font=ctk.CTkFont(size=11), text_color="gray55").pack(pady=(0, 12))
 
         self.odswiez_porty()
@@ -220,7 +220,7 @@ class Okno(ctk.CTk):
             self.zmien(zakres_db=v)
 
     def zmien_spadek(self, v, zapisz=True):
-        self.lbl_spad.configure(text="wolno" if v < 0.4 else "szybko" if v > 1.0 else "średnio")
+        self.lbl_spad.configure(text="slow" if v < 0.4 else "fast" if v > 1.0 else "medium")
         if zapisz:
             self.zmien(spadek=round(v, 2))
 
@@ -249,7 +249,7 @@ class Okno(ctk.CTk):
             self.vfd.pokaz(gora, dol, self.s.u["jasnosc"])
         self.kropka_port.configure(text_color="#3ddc84" if self.s.port_ok else "#e05050")
         self.lbl_port.configure(text=f"Arduino: {self.s.stan_port}")
-        self.lbl_audio.configure(text=("Dźwięk z: " if self.s.audio_ok else "Dźwięk: ") + self.s.stan_audio,
+        self.lbl_audio.configure(text="Audio: " + self.s.stan_audio,
                                  text_color="gray70" if self.s.audio_ok else "#e05050")
         self._tik = getattr(self, "_tik", 0) + 1
         if self._tik % 50 == 0:                     # co ~2 s: podpięto/odpięto płytkę?
@@ -273,12 +273,12 @@ class Okno(ctk.CTk):
                                     checked=lambda _: self.s.u["jasnosc"] == kod, radio=True)
 
         menu = pystray.Menu(
-            pystray.MenuItem("Pokaż", lambda: self.after(0, self.pokaz), default=True),
-            pystray.MenuItem("Jasność", pystray.Menu(*[jasnosc(k) for k in range(4)])),
+            pystray.MenuItem("Show", lambda: self.after(0, self.pokaz), default=True),
+            pystray.MenuItem("Brightness", pystray.Menu(*[jasnosc(k) for k in range(4)])),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Zakończ", lambda: self.after(0, self.zakoncz)),
+            pystray.MenuItem("Quit", lambda: self.after(0, self.zakoncz)),
         )
-        self.ikona = pystray.Icon("analizator_vfd", ikona_zasobnika(), "Analizator VFD", menu)
+        self.ikona = pystray.Icon("analizator_vfd", ikona_zasobnika(), "VFD Spectrum Analyzer", menu)
         self.ikona.run_detached()
 
     def ustaw_jasnosc(self, kod):
@@ -305,7 +305,7 @@ def main():
     try:
         blokada.bind(("127.0.0.1", 47321))
     except OSError:
-        sys.exit("Analizator VFD już działa (ikona przy zegarze).")
+        sys.exit("VFD Spectrum Analyzer is already running (tray icon).")
 
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("green")

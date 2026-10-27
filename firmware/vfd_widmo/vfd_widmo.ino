@@ -80,7 +80,7 @@ void rysujCzekanie(unsigned long t) {
   if (t - ostatnio < 70) return;
   ostatnio = t;
   vfd.setCursor(0, 0);
-  vfd.print("  Czekam na USB...  ");
+  vfd.print("  Waiting for USB...");
   byte k = (t / 70) % 38;
   byte p = k < 19 ? k : 38 - k;        // skaner odbija się od brzegów
   vfd.setCursor(0, 1);

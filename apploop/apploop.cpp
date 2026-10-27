@@ -107,7 +107,7 @@ struct Handler : IActivateAudioInterfaceCompletionHandler {
 
 static int przechwyc(DWORD pid) {
     HANDLE cel = OpenProcess(SYNCHRONIZE, FALSE, pid);
-    if (!cel) { fprintf(stderr, "brak procesu %lu\n", pid); return 2; }
+    if (!cel) { fprintf(stderr, "no such process %lu\n", pid); return 2; }
 
     AUDIOCLIENT_ACTIVATION_PARAMS ap = {};
     ap.ActivationType = ACT_PROCESS_LOOPBACK;
@@ -165,6 +165,6 @@ int main(int argc, char **argv) {
     CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     if (argc >= 2 && !strcmp(argv[1], "list")) return lista();
     if (argc >= 3 && !strcmp(argv[1], "capture")) return przechwyc(strtoul(argv[2], nullptr, 10));
-    fprintf(stderr, "uzycie: apploop list | apploop capture <pid>\n");
+    fprintf(stderr, "usage: apploop list | apploop capture <pid>\n");
     return 1;
 }

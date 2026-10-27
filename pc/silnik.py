@@ -16,7 +16,7 @@ F_MIN, F_MAX = 40, 16000
 MIN_SZCZYT_DB = -45      # automatyczne wzmocnienie nie podbija ciszy ponad to
 ZAKRES_VU_DB = 30
 JASNOSCI = [100, 75, 50, 25]   # kod VFD 0..3
-DOMYSLNE = "Domyślne głośniki"
+DOMYSLNE = "Default speakers"
 AUTO = "Auto"
 APP = "app:"             # ustawienie "audio" = "app:foobar2000.exe" -> dźwięk tylko z tego programu
 APPLOOP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "apploop.exe")
@@ -95,10 +95,12 @@ class Silnik:
 
     def __init__(self, ustawienia=None):
         self.u = dict(USTAWIENIA, **(ustawienia or {}))
+        if self.u["audio"] == "Domyślne głośniki":      # ustawienia ze starszej, polskiej wersji
+            self.u["audio"] = DOMYSLNE
         self.wyslane = np.zeros(2 * PASMA, int)
         self.vu = np.zeros(2, int)
-        self.stan_audio = "uruchamianie..."
-        self.stan_port = "szukam Arduino..."
+        self.stan_audio = "starting..."
+        self.stan_port = "looking for Arduino..."
         self.audio_ok = self.port_ok = False
         self.urzadzenia = []
         self.aplikacje = []          # nazwy .exe programów z dźwiękiem
@@ -148,22 +150,22 @@ class Silnik:
             bufor.callback(dane[:len(dane) // 4 * 4], 0, None, 0)
         if proces is self.proces:
             self.audio_ok = False
-            self.stan_audio = "program zamknięty - czekam..."
+            self.stan_audio = "app closed - waiting..."
             self._kolejna_audio = time.time() + 3
 
     def _otworz_aplikacje(self, nazwa, apps):
         if not os.path.exists(APPLOOP):
-            self.stan_audio = "brak apploop.exe obok silnik.py (patrz README)"
+            self.stan_audio = "apploop.exe missing next to silnik.py (see README)"
             return None
         pasujace = sorted((a for a in apps if a[1].lower() == nazwa.lower()), key=lambda a: not a[2])
         if not pasujace:
-            self.stan_audio = f"{nazwa} nie gra - czekam..."
+            self.stan_audio = f"{nazwa} not running - waiting..."
             return None
         self.bufor = Bufor(2)
         self.proces = subprocess.Popen([APPLOOP, "capture", str(pasujace[0][0])], stdout=subprocess.PIPE,
                                        stderr=subprocess.DEVNULL, creationflags=subprocess.CREATE_NO_WINDOW)
         threading.Thread(target=self._czytaj_aplikacje, args=(self.proces, self.bufor), daemon=True).start()
-        self.stan_audio = f"tylko {nazwa}"
+        self.stan_audio = f"only {nazwa}"
         return APP_RATE
 
     def _otworz_audio(self):
@@ -184,7 +186,7 @@ class Silnik:
                                    for d in self.pa.get_loopback_device_info_generator()]
                 return
         except Exception as e:
-            self.stan_audio = f"błąd: {e}"
+            self.stan_audio = f"error: {e}"
             return
         try:
             self.pa = pyaudio.PyAudio()
@@ -202,10 +204,10 @@ class Silnik:
                                        input_device_index=dev["index"], frames_per_buffer=512,
                                        stream_callback=self.bufor.callback)
         except StopIteration:
-            self.stan_audio = f"brak urządzenia: {self.u['audio']}"
+            self.stan_audio = f"device not found: {self.u['audio']}"
             return
         except Exception as e:
-            self.stan_audio = f"błąd: {e}"
+            self.stan_audio = f"error: {e}"
             return
         self._ustaw_pasma(rate)
         self.stan_audio = dev["name"].replace(" [Loopback]", "")
@@ -239,15 +241,15 @@ class Silnik:
         port = znajdz_port() if self.u["port"] == AUTO else self.u["port"]
         if not port:
             ile = sum(1 for _, o in lista_portow() if any(s in o.lower() for s in ("arduino", "ch340", "serial")))
-            self.stan_port = "kilka Arduino - wybierz port" if ile > 1 else "nie znaleziono Arduino"
+            self.stan_port = "several Arduinos - pick a port" if ile > 1 else "no Arduino found"
         else:
             try:
                 self.ser = serial.Serial(port, 115200, timeout=0, write_timeout=0.5)
                 self._gotowy_od = time.time() + 2            # Arduino restartuje się po otwarciu portu
-                self.stan_port = f"{port} - łączenie..."
+                self.stan_port = f"{port} - connecting..."
                 return
             except serial.SerialException as e:
-                self.stan_port = f"{port} zajęty" if "Access" in str(e) or "denied" in str(e) else f"{port}: błąd"
+                self.stan_port = f"{port} busy" if "Access" in str(e) or "denied" in str(e) else f"{port}: error"
         self._kolejna_proba = time.time() + 2
 
     def _wyslij(self, ramka):
@@ -258,11 +260,11 @@ class Silnik:
             self.ser.read(self.ser.in_waiting or 0)
             if not self.port_ok:
                 self.port_ok = True
-                self.stan_port = f"{self.ser.port} - połączono"
+                self.stan_port = f"{self.ser.port} - connected"
         except (serial.SerialException, OSError):
             self.ser = None
             self.port_ok = False
-            self.stan_port = "rozłączono - szukam..."
+            self.stan_port = "disconnected - searching..."
             self._kolejna_proba = time.time() + 2
 
     # --- główna pętla ---
