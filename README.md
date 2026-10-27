@@ -21,9 +21,9 @@ them online, so the pitfalls we hit are written down below.
 
 ```
  PC (Windows)                                        Arduino UNO / Nano        VFD 20x2
- ┌───────────────────────────────────────┐   USB    ┌──────────────────┐ 8-bit ┌─────────┐
+ ┌───────────────────────────────────────┐   USB    ┌──────────────────┐ 8-bit ┌──────────────┐
  │ WASAPI loopback (system or one app)   │ ───────► │ parse frame,     │ ────► │ ▂▅█ LR █▅▂│
- │ → FFT → 9+9 bands → auto gain → decay │ 40 fps   │ draw CGRAM bars  │  bus  └─────────┘
+ │ → FFT → 9+9 bands → auto gain → decay │ 40 fps   │ draw CGRAM bars  │  bus  └──────────────┘
  └───────────────────────────────────────┘          └──────────────────┘
 ```
 
@@ -85,20 +85,19 @@ With two displays, everything is shared except **E**.
 
 ### Permanent build
 
-- Arduino Nano on perfboard, a screw terminal for 5 V, 1000 µF + 100 nF at the input, and one 2×7 header + ribbon per display.
-- A smoked acrylic sheet in front of the glass looks great.
+- I would suggest using Arduino Nano on perfboard with good external power supply for pernament build.
+- In the future i will desing dedicated PCB for it.
 
 ### Desk stand
 
-[`3d/stand_vfd.stl`](3d/stand_vfd.stl): one module holds one display (154 × 66 × 46 mm, tilted 25°).
+[`3d/stand_vfd.stl`](3d/stand_vfd.stl): one module is for one display (154 × 66 × 46 mm, tilted 25°).
 
 ![stand](3d/preview.png)
 
 - **Modular:** both side gussets have two M3 holes, so modules bolt together side by side
   (2× M3×10 + nuts per joint). Chain as many as you have displays: two for left / right,
-  or more in a row. Every module is the same part, just print it N times.
+  or more in a row.
 - Display screws: 4× M2.5 self-tapping, 8–10 mm. The header has a cut-out behind it, so the ribbon plugs in from the back.
-- Print on its side (one gusset flat on the bed), no supports.
 
 ## Software
 
@@ -119,6 +118,10 @@ python widmo.py             # console version: 1-4 brightness, q quit
 
 ![gui](docs/gui.png)
 
+> ❗️ **Status:** App was made with help of AI – There might be some bugs, if u will see some report them.
+>
+> ⚠️ **Report** Any bugs https://github.com/WyerFrameZ/vfd-spectrum-analyzer/issues
+
 ### 3. Per-app capture (optional)
 
 Capturing a single program uses the Windows process-loopback API, which Python cannot reach
@@ -132,32 +135,6 @@ g++ -O2 -static apploop/apploop.cpp -o pc/apploop.exe -lole32 -lmmdevapi -luuid
 
 Then pick *App: foobar2000.exe* (or anything else that has played sound) in the *Audio source* list.
 The choice is stored by program name, so it reconnects when you restart the player.
-
-## Repository layout
-
-```
-firmware/vfd_widmo/   Arduino sketch
-pc/                   silnik.py (engine), widmo_gui.py (GUI), widmo.py (console)
-apploop/              per-app audio capture helper (C++)
-3d/                   desk stand STL (one module per display)
-docs/                 images
-```
-
-The app is in English; the code and comments are in Polish. The names should still be readable
-(`jasnosc` = brightness, `pasma` = bands, `slupek` = bar, `widmo` = spectrum).
-
-## Po polsku
-
-Analizator widma stereo na wyświetlaczu VFD Noritake (np. z kasy fiskalnej POSNET) i Arduino.
-Komputer łapie dźwięk (cały system albo jeden program, np. foobar), liczy FFT i wysyła słupki po USB.
-Najważniejsze pułapki:
-- **zasilanie VFD z osobnego 5 V** (400–800 mA, USB nie da rady),
-- **tryb 8-bit** zamiast 4-bit (inaczej krzaki),
-- **zworka JP2 otwarta** (tryb M68),
-- **kondensatory 1000 µF + 100 nF przy złączu**.
-
-Podstawka do druku jest w `3d/`: jeden moduł na jeden ekran, moduły skręca się ze sobą
-szeregowo (2× M3), więc można połączyć ich dowolnie dużo.
 
 ## License
 
