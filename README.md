@@ -118,7 +118,7 @@ python widmo.py             # console version: 1-4 brightness, q quit
 
 ![gui](docs/gui.png)
 
-> ❗️ **Status:** App was made with help of AI – There might be some bugs, if u will see some report them.
+> ❗️  **Status:** App was made with help of AI – There might be some bugs, if u will see some report them.
 >
 > ⚠️ **Report** Any bugs https://github.com/WyerFrameZ/vfd-spectrum-analyzer/issues
 
