@@ -1,0 +1,6 @@
+numpy
+pyaudiowpatch
+pyserial
+customtkinter
+pystray
+pillow

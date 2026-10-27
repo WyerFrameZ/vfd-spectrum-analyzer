@@ -1,0 +1,17 @@
+# local settings of the PC app
+pc/ustawienia.json
+__pycache__/
+*.pyc
+
+# built helper - published in GitHub Releases
+*.exe
+
+# KiCad
+*.kicad_prl
+*-backups/
+fp-info-cache
+_autosave-*
+~*.lck
+
+# Arduino
+build/
