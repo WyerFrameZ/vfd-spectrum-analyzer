@@ -1,27 +1,40 @@
 #!/usr/bin/env python3
-"""Breadboard-style wiring diagram (Fritzing look): VFD seen from the back + Arduino UNO.
+"""Breadboard-style wiring diagram from real pictures: a photo of the VFD's back + the Arduino UNO
+graphic from the Fritzing parts library (CC-BY-SA 3.0), both at the same real-world scale.
 
-    python wiring_diagram.py            -> ../docs/wiring.svg (+ wiring.png when Playwright + Chrome are available)
+    python wiring_diagram.py   -> ../docs/wiring.svg (self-contained) + ../docs/wiring.png (needs Playwright + Chrome)
 
-Layout trick: the VFD is drawn from the BACK (the side you plug the wires into), so its 2x7 header
-sits at the right edge, and the UNO is rotated so its digital header faces it. The pin order then
-matches 1:1 and no two wires cross.
+Layout trick: the VFD is shown from the BACK (the side you plug the wires into), so its 2x7 header
+sits at the right edge, and the UNO is rotated 90° so its digital header faces it. The pin order
+then matches 1:1 and no two wires cross.
 """
-import os
+import base64, os
 from xml.sax.saxutils import escape
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs")
-W, H = 1400, 860
+HERE = os.path.dirname(os.path.abspath(__file__))
+ASSETS = os.path.join(HERE, "assets")
+OUT = os.path.join(HERE, "..", "docs")
+W, H = 2560, 1180
 
-# VFD header (back view): even pins on the outer (right) column, odd on the inner one
-X_EVEN, X_ODD, ROW0, ROW_PITCH, PIN_R = 725, 685, 200, 40, 12
-# Arduino digital header (rotated 90° CCW: D0 at the top)
-AX = 1075
+# --- VFD photo (back side, header on the right), 10.96 px/mm ---
+VX, VY = 40, 200                        # photo position
+PHOTO_W, PHOTO_H = 1525, 471
+X_EVEN, X_ODD = VX + 1500, VX + 1472    # header columns: even pins on the board edge
+ROW_PITCH = 27.8                        # 2.54 mm
+ROW0 = VY + 233 - 3 * ROW_PITCH         # pins 13/14
+
+# --- Arduino UNO (Fritzing breadboard SVG, 212.372 x 151.2 units, 0.1" = 7.2 units) ---
+U = 3.54                                # px per SVG unit (same mm scale as the photo)
+UNO_W, UNO_H = 212.372, 151.2
+AX0, AY0 = 1960, 230                    # top-left of the rotated board
+UNO_PINS = {"D2": 183.57, "D3": 176.37, "D4": 169.17, "D5": 161.97, "D6": 154.77, "D7": 147.57,
+            "D8": 136.05, "D9": 128.85, "D10": 121.65, "D11": 114.45, "D12": 107.25, "D13": 100.05,
+            "GND": 92.85, "AREF": 85.65}   # x of the top header pins (y = 7.2)
 
 COL = {
-    "DB0": "#8e44ad", "DB1": "#2e86de", "DB2": "#10ac84", "DB3": "#84c11f",
-    "DB4": "#f6c90e", "DB5": "#ff9f43", "DB6": "#ee5253", "DB7": "#c44569",
-    "RS": "#00b8d4", "E": "#ff6bb5", "GND": "#2d3436", "+5V": "#e01e1e",
+    "DB0": "#8e44ad", "DB1": "#2e86de", "DB2": "#10ac84", "DB3": "#7cb518",
+    "DB4": "#e1b000", "DB5": "#ff8c1a", "DB6": "#ee5253", "DB7": "#c44569",
+    "RS": "#00a8c6", "E": "#ff5fa8", "GND": "#222", "+5V": "#e01e1e",
 }
 
 
@@ -30,144 +43,156 @@ def pin_xy(n):
     return (X_EVEN if n % 2 == 0 else X_ODD), ROW0 + row * ROW_PITCH
 
 
-def ard_y(name):
-    order = ["D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", None, "D8", "D9", "D10", "D11", "D12", "D13", "GND", "AREF"]
-    return 170 + 20 * order.index(name)
+def ard_xy(name):
+    """Pin position after rotating the board 90° CCW (header on the left, D0 on top)."""
+    return AX0 + 7.2 * U, AY0 + (UNO_W - UNO_PINS[name]) * U
+
+
+def data_uri(path, mime):
+    with open(path, "rb") as f:
+        return f"data:{mime};base64," + base64.b64encode(f.read()).decode()
 
 
 def wire(points, color, width=7):
-    d = "M " + " L ".join(f"{x},{y}" for x, y in points)
-    return (f'<path d="{d}" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="{width + 3}" '
+    d = "M " + " L ".join(f"{x:.1f},{y:.1f}" for x, y in points)
+    return (f'<path d="{d}" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="{width + 3}" '
             f'stroke-linejoin="round" stroke-linecap="round"/>'
             f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width}" stroke-linejoin="round" '
-            f'stroke-linecap="round"/>')
+            f'stroke-linecap="round"/>'
+            f'<path d="{d}" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="2" '
+            f'stroke-linejoin="round" transform="translate(-1.5,-1.5)"/>')
 
 
-def text(x, y, s, size=15, color="#222", anchor="start", weight="normal", extra=""):
-    return (f'<text x="{x}" y="{y}" font-size="{size}" fill="{color}" text-anchor="{anchor}" '
+def end(x, y, color):
+    return f'<circle cx="{x:.1f}" cy="{y:.1f}" r="6" fill="{color}" stroke="#000" stroke-width="2"/>'
+
+
+def text(x, y, s, size=16, color="#222", anchor="start", weight="normal", extra=""):
+    return (f'<text x="{x:.1f}" y="{y:.1f}" font-size="{size}" fill="{color}" text-anchor="{anchor}" '
             f'font-weight="{weight}" font-family="Segoe UI, Arial, sans-serif" {extra}>{escape(str(s))}</text>')
 
 
+def tag(x, y, s, color):
+    w = 9 * len(s) + 12
+    return (f'<rect x="{x:.1f}" y="{y - 10:.1f}" width="{w}" height="20" rx="10" fill="{color}" stroke="#000" '
+            f'stroke-opacity=".4"/>' + text(x + w / 2, y + 5, s, 13, "#fff", "middle", "bold"))
+
+
 def build():
-    s = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">',
-         f'<rect width="{W}" height="{H}" fill="#f7f5f0"/>',
-         text(40, 50, "VFD Spectrum Analyzer – wiring", 28, weight="bold"),
-         text(40, 78, "Noritake CU20029ECPB-W1J seen from the BACK (connector side)  ·  Arduino UNO rotated 90°  ·  8-bit bus", 15, "#555")]
+    s = [f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
+         f'width="{W}" height="{H}" viewBox="0 0 {W} {H}">',
+         f'<rect width="{W}" height="{H}" fill="#f4f1ea"/>',
+         text(40, 70, "VFD Spectrum Analyzer – wiring", 40, weight="bold"),
+         text(40, 110, "Noritake CU20029ECPB-W1J seen from the BACK (connector side)   ·   Arduino UNO rotated 90°"
+                       "   ·   8-bit bus   ·   to scale", 20, "#555")]
 
-    # --- VFD board (back side) ---
-    s.append('<rect x="60" y="120" width="700" height="380" rx="10" fill="#1e7a46" stroke="#13502e" stroke-width="3"/>')
-    for hx, hy in ((82, 142), (738, 142), (82, 478), (738, 478)):
-        s.append(f'<circle cx="{hx}" cy="{hy}" r="9" fill="#f7f5f0" stroke="#c9a54b" stroke-width="3"/>')
-    s.append('<circle cx="260" cy="330" r="62" fill="#2b2b2b" stroke="#111" stroke-width="3"/>')
-    s.append('<circle cx="260" cy="330" r="30" fill="#3a3a3a"/>')
-    s.append('<rect x="370" y="210" width="150" height="110" rx="4" fill="#222"/>')
-    s.append(text(445, 270, "ISE25001", 15, "#bbb", "middle"))
-    s.append('<rect x="380" y="370" width="90" height="60" rx="3" fill="#222"/>')
-    s.append(text(110, 175, "VFD – back side", 20, "#e8f5e9", weight="bold"))
-    s.append(text(110, 200, "(mirror image of the datasheet front view)", 13, "#c8e6c9"))
-    s.append(text(110, 470, "JP2 OPEN = M68 mode  ·  JP3 open  ·  JP1 leave as is", 14, "#fff59d"))
+    # pictures
+    s.append(f'<image x="{VX}" y="{VY}" width="{PHOTO_W}" height="{PHOTO_H}" '
+             f'href="{data_uri(os.path.join(ASSETS, "vfd_back.jpg"), "image/jpeg")}"/>')
+    uno = data_uri(os.path.join(ASSETS, "arduino_uno_rev3_fritzing.svg"), "image/svg+xml")
+    # rotate -90° about the origin, then move: (x, y) -> (y, W - x)
+    s.append(f'<g transform="translate({AX0},{AY0 + UNO_W * U}) rotate(-90) scale({U})">'
+             f'<image width="{UNO_W}" height="{UNO_H}" href="{uno}"/></g>')
 
-    # header outline + pins
-    s.append(f'<rect x="{X_ODD - 22}" y="{ROW0 - 22}" width="{X_EVEN - X_ODD + 44}" height="{6 * ROW_PITCH + 44}" '
-             f'rx="4" fill="#111" opacity=".85"/>')
-
-    # --- wires: (VFD pin, Arduino pin, colour, label) ---
-    sig = [(14, "D2", "DB7"), (13, "D3", "DB6"), (12, "D4", "DB5"), (11, "D5", "DB4"), (10, "D7", "DB3"),
-           (9, "D8", "DB2"), (8, "D9", "DB1"), (7, "D10", "DB0"), (6, "D11", "E"), (4, "D12", "RS")]
-    channels = [1040 - 22 * i for i in range(len(sig))]       # upper wire -> channel further right
-    for (n, a, name), cx in zip(sig, channels):
-        px, py = pin_xy(n)
-        ay = ard_y(a)
-        if n % 2 == 0:
-            pts = [(AX, ay), (cx, ay), (cx, py), (px, py)]
-        else:                                               # pass below the outer pin, then hook in
-            pts = [(AX, ay), (cx, ay), (cx, py + 20), (X_ODD + 20, py + 20), (X_ODD + 20, py), (px, py)]
-        s.append(wire(pts, COL[name]))
-        ly = py if n % 2 == 0 else py + 20                  # label on the segment entering the header
-        s.append(text(X_EVEN + 50, ly - 5, f"{name} → {a}", 11, "#b38f00" if name == "DB4" else COL[name],
-                      weight="bold"))
-
-    # R/W (5) -> GND (1) jumper on the inner side, GND / +5V from the supply
-    p5, p3, p1, p2 = pin_xy(5), pin_xy(3), pin_xy(1), pin_xy(2)
-    s.append(wire([p5, (X_ODD - 22, p5[1]), (X_ODD - 22, p1[1])], COL["GND"]))
-    s.append(wire([(X_ODD - 22, 600), (X_ODD - 22, p1[1]), p1], COL["GND"]))
-    s.append(wire([(X_EVEN + 22, 600), (X_EVEN + 22, p2[1]), p2], COL["+5V"]))
-    # Arduino GND -> supply minus, around the left of the supply
-    gy = ard_y("GND")
-    s.append(wire([(AX, gy), (1050, gy), (1050, 700), (585, 700), (585, 545), (X_ODD - 22, 545)], COL["GND"]))
-    s.append(f'<circle cx="{X_ODD - 22}" cy="545" r="7" fill="{COL["GND"]}"/>')
-    s.append(text(800, 693, "GND (common)", 13, "#2d3436", weight="bold"))
-
-    # capacitors right at the connector, across GND / +5V
-    s.append(f'<rect x="{X_ODD - 14}" y="560" width="{X_EVEN - X_ODD + 30}" height="26" rx="13" fill="#24366b" stroke="#111" stroke-width="2"/>')
-    s.append(f'<rect x="{X_ODD - 14}" y="560" width="10" height="26" rx="5" fill="#b8c4e6"/>')
-    s.append(text(X_EVEN + 8, 578, "+", 16, "#fff", "middle", "bold"))
-    s.append(text(X_ODD - 32, 579, "1000 µF", 13, "#24366b", "end", "bold"))
-    s.append(f'<ellipse cx="{(X_ODD + X_EVEN) / 2}" cy="530" rx="18" ry="11" fill="#e6a23c" stroke="#8a5a12" stroke-width="2"/>')
-    s.append(f'<line x1="{X_ODD - 22}" y1="530" x2="{(X_ODD + X_EVEN) / 2 - 18}" y2="530" stroke="#888" stroke-width="3"/>')
-    s.append(f'<line x1="{(X_ODD + X_EVEN) / 2 + 18}" y1="530" x2="{X_EVEN + 22}" y2="530" stroke="#888" stroke-width="3"/>')
-    s.append(text((X_ODD + X_EVEN) / 2, 535, "104", 11, "#4a3008", "middle", "bold"))
-    s.append(text(X_ODD - 32, 535, "100 nF", 13, "#8a5a12", "end", "bold"))
-
-    # pins on top of the wires, number inside
+    # 2x7 header drawn over the photo (the real one has plugs on it)
+    hx0, hy0 = X_ODD - 15, ROW0 - 15
+    s.append(f'<rect x="{hx0}" y="{hy0}" width="{X_EVEN - X_ODD + 30}" height="{6 * ROW_PITCH + 30}" rx="3" '
+             f'fill="#141414" stroke="#000"/>')
     for n in range(1, 15):
         x, y = pin_xy(n)
-        fill = "#9e9e9e" if n == 3 else "#e8c547"
-        s.append(f'<circle cx="{x}" cy="{y}" r="{PIN_R}" fill="{fill}" stroke="#5c4a0b" stroke-width="2"/>')
-        s.append(text(x, y + 5, n, 13, "#000", "middle", "bold"))
-    s.append(text(X_ODD - 40, pin_xy(3)[1] + 5, "NC", 13, "#ddd", "end", "bold"))
-    s.append(text(X_ODD - 40, pin_xy(5)[1] + 5, "R/W", 13, "#ddd", "end", "bold"))
-    s.append(text((X_ODD + X_EVEN) / 2, ROW0 - 32, "2×7 header", 13, "#e8f5e9", "middle", "bold"))
+        s.append(f'<rect x="{x - 5}" y="{y - 5}" width="10" height="10" fill="#d4b13a" stroke="#7a5f10"/>')
 
-    # --- power supply ---
-    s.append('<rect x="600" y="600" width="230" height="70" rx="8" fill="#3d3d3d" stroke="#111" stroke-width="2"/>')
-    s.append(text(715, 630, "5 V power supply", 16, "#fff", "middle", "bold"))
-    s.append(text(715, 652, "≥ 1 A  (2 displays: ≥ 3 A)", 13, "#ddd", "middle"))
-    for x, lab in ((X_ODD - 22, "−"), (X_EVEN + 22, "+")):
-        s.append(f'<rect x="{x - 11}" y="596" width="22" height="16" rx="3" fill="#2e7d32"/>')
-        s.append(text(x, 594, lab, 18, "#000", "middle", "bold"))
+    # --- signal wires: (VFD pin, Arduino pin, signal) ---
+    sig = [(14, "D2", "DB7"), (13, "D3", "DB6"), (12, "D4", "DB5"), (11, "D5", "DB4"), (10, "D7", "DB3"),
+           (9, "D8", "DB2"), (8, "D9", "DB1"), (7, "D10", "DB0"), (6, "D11", "E"), (4, "D12", "RS")]
+    channels = [1915 - 19 * i for i in range(len(sig))]     # upper wire -> channel further right
+    for i, ((n, a, name), cx) in enumerate(zip(sig, channels)):
+        px, py = pin_xy(n)
+        ax, ay = ard_xy(a)
+        if n % 2 == 0:
+            approach = py
+            pts = [(ax, ay), (cx, ay), (cx, py), (px, py)]
+        else:                                               # pass between the outer pins, then hook in
+            approach = py + ROW_PITCH / 2
+            mid = (X_ODD + X_EVEN) / 2
+            pts = [(ax, ay), (cx, ay), (cx, approach), (mid, approach), (mid, py), (px, py)]
+        s.append(wire(pts, COL[name]))
+        s.append(end(px, py, COL[name]))
+        s.append(end(ax, ay, COL[name]))
+        s.append(tag(VX + PHOTO_W + 12 + (i % 2) * 60, approach, name, COL[name]))
 
-    # --- Arduino UNO (rotated 90° CCW: digital header on the left, D0 on top) ---
-    s.append('<rect x="1060" y="120" width="300" height="420" rx="12" fill="#00979c" stroke="#00686b" stroke-width="3"/>')
-    s.append(f'<rect x="{AX - 12}" y="{ard_y("D0") - 12}" width="24" height="{ard_y("AREF") - ard_y("D0") + 24}" rx="3" fill="#1b1b1b"/>')
-    for name in ["D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "D11", "D12", "D13", "GND", "AREF"]:
-        y = ard_y(name)
-        s.append(f'<rect x="{AX - 5}" y="{y - 5}" width="10" height="10" fill="#c9c9c9"/>')
-        s.append(text(AX + 22, y + 5, name, 13, "#fff", weight="bold"))
-    s.append(text(1305, 300, "Arduino UNO", 24, "#fff", "middle", "bold", 'transform="rotate(-90 1305 300)"'))
-    s.append(text(1340, 300, "(Nano: same D-pins)", 14, "#d0f4f5", "middle", "", 'transform="rotate(-90 1340 300)"'))
-    s.append('<rect x="1100" y="520" width="60" height="40" fill="#b0b0b0" stroke="#666"/>')
-    s.append(text(1130, 580, "USB → PC", 13, "#333", "middle", "bold"))
-    s.append(text(1132, ard_y("D6") + 5, "← E of 2nd display", 11, "#fff9c4"))
-    # 5V pin warning
-    s.append(text(1345, 470, "5V pin: NOT", 12, "#ffeb3b", "end", "bold"))
-    s.append(text(1345, 486, "connected", 12, "#ffeb3b", "end", "bold"))
+    # --- power: R/W (5) -> GND (1) jumper, supply, capacitors ---
+    p5, p1, p2 = pin_xy(5), pin_xy(1), pin_xy(2)
+    gx, vx = X_ODD - 20, X_EVEN + 22                # GND / +5V rails left and right of the header
+    sup_y = 860
+    s.append(wire([p5, (gx, p5[1]), (gx, sup_y)], COL["GND"]))
+    s.append(wire([p1, (gx, p1[1])], COL["GND"]))
+    s.append(wire([p2, (vx, p2[1]), (vx, sup_y)], COL["+5V"]))
+    for p, c in ((p5, "GND"), (p1, "GND"), (p2, "+5V")):
+        s.append(end(*p, COL[c]))
+    s.append(tag(gx - 78, p5[1], "R/W", "#555"))
+    s.append(text(gx - 12, pin_xy(3)[1] + 5, "NC", 14, "#fff", "end", "bold"))
 
-    # --- notes / legend ---
+    # Arduino GND -> supply minus (around the left of the supply)
+    ax, ay = ard_xy("GND")
+    s.append(wire([(ax, ay), (1700, ay), (1700, 990), (1340, 990), (1340, 830), (gx, 830)], COL["GND"]))
+    s.append(end(ax, ay, COL["GND"]))
+    s.append(f'<circle cx="{gx}" cy="830" r="8" fill="{COL["GND"]}"/>')
+    s.append(tag(1460, 990, "GND (common)", "#333"))
+
+    # capacitors across the rails, right at the connector
+    cy1, cy2 = 735, 785
+    s.append(f'<line x1="{gx}" y1="{cy1}" x2="{vx}" y2="{cy1}" stroke="#9a9a9a" stroke-width="3"/>')
+    s.append(f'<ellipse cx="{(gx + vx) / 2}" cy="{cy1}" rx="17" ry="12" fill="#e9a23b" stroke="#8a5a12" stroke-width="2"/>')
+    s.append(text((gx + vx) / 2, cy1 + 4, "104", 11, "#4a3008", "middle", "bold"))
+    s.append(text(gx - 14, cy1 + 5, "100 nF", 17, "#8a5a12", "end", "bold"))
+    s.append(f'<line x1="{gx}" y1="{cy2}" x2="{vx}" y2="{cy2}" stroke="#9a9a9a" stroke-width="3"/>')
+    s.append(f'<rect x="{gx + 8}" y="{cy2 - 15}" width="{vx - gx - 16}" height="30" rx="6" fill="#1f2f6b" stroke="#0c143a" stroke-width="2"/>')
+    s.append(f'<rect x="{gx + 8}" y="{cy2 - 15}" width="12" height="30" rx="4" fill="#c6cff0"/>')
+    s.append(text(vx - 18, cy2 + 6, "+", 18, "#fff", "middle", "bold"))
+    s.append(text(gx - 14, cy2 + 5, "1000 µF", 17, "#1f2f6b", "end", "bold"))
+
+    # power supply
+    s.append(f'<rect x="{gx - 120}" y="{sup_y}" width="{vx - gx + 240}" height="90" rx="10" fill="#2f2f2f" stroke="#000" stroke-width="2"/>')
+    s.append(text((gx + vx) / 2, sup_y + 50, "5 V power supply", 22, "#fff", "middle", "bold"))
+    s.append(text((gx + vx) / 2, sup_y + 76, "≥ 1 A  (two displays: ≥ 3 A)", 16, "#ccc", "middle"))
+    for x, lab in ((gx, "−"), (vx, "+")):
+        s.append(f'<rect x="{x - 12}" y="{sup_y - 4}" width="24" height="18" rx="3" fill="#2e7d32"/>')
+        s.append(text(x + (-22 if lab == "−" else 22), sup_y + 12, lab, 24, "#000", "middle", "bold"))
+
+    # Arduino notes
+    d6x, d6y = ard_xy("D6")
+    s.append(text(1990, 150, "D6 = E of the 2nd (right) display, optional", 16, "#555"))
+    s.append(f'<line x1="2110" y1="158" x2="{d6x - 4}" y2="{d6y - 4}" stroke="#555" stroke-width="1.5" stroke-dasharray="5 4"/>')
+    s.append(text(2510, 1000, "UNO 5V pin: NOT connected", 18, "#c62828", "end", "bold"))
+    s.append(text(2510, 1024, "USB → PC (data only)", 18, "#333", "end"))
+
+    # notes
     notes = [
         "1.  The VFD takes 400 mA (≈ 800 mA at switch-on): power it from the separate 5 V supply, never from the Arduino.",
-        "2.  Only GND is shared between the supply, the display and the Arduino. UNO: don't feed the 5 V into its 5V pin.",
-        "3.  Capacitors go right at the display connector (pin 1 = GND, pin 2 = +5 V). Mind the electrolytic's polarity.",
-        "4.  Two displays: connect everything in parallel except E (pin 6) – left display E → D11, right display E → D6.",
-        "5.  Keep the wires short (< 20 cm), especially E. Pin numbering of the header is zig-zag, see the datasheet.",
+        "2.  Only GND is shared between the supply, the display and the Arduino. UNO: never feed the 5 V into its 5V pin.",
+        "3.  Capacitors go right at the display connector, across pin 1 (GND) and pin 2 (+5 V). Mind the polarity.",
+        "4.  Display jumpers: JP2 OPEN (M68 mode), JP3 open, JP1 as from the factory.  Two displays: all in parallel except E.",
+        "5.  Keep the wires short (< 20 cm), especially E.",
     ]
     for i, n in enumerate(notes):
-        s.append(text(40, 750 + i * 22, n, 14, "#333"))
+        s.append(text(40, 760 + i * 30, n, 19, "#333"))
+    s.append(text(40, H - 24, "Arduino UNO graphic: Fritzing parts library, CC-BY-SA 3.0 (fritzing.org)  ·  VFD photo: own", 14, "#888"))
     s.append("</svg>")
     return "\n".join(s)
 
 
 if __name__ == "__main__":
-    svg_path = os.path.join(OUT, "wiring.svg")
+    svg_path = os.path.abspath(os.path.join(OUT, "wiring.svg"))
     with open(svg_path, "w", encoding="utf-8") as f:
         f.write(build())
-    print("wrote", os.path.abspath(svg_path))
+    print("wrote", svg_path)
     try:
         from playwright.sync_api import sync_playwright
         with sync_playwright() as p:
             b = p.chromium.launch(channel="chrome")
-            pg = b.new_page(viewport={"width": W, "height": H}, device_scale_factor=2)
-            pg.goto("file:///" + os.path.abspath(svg_path).replace("\\", "/"))
+            pg = b.new_page(viewport={"width": W, "height": H})
+            pg.goto("file:///" + svg_path.replace("\\", "/"))
             pg.screenshot(path=os.path.join(OUT, "wiring.png"))
             b.close()
         print("wrote", os.path.abspath(os.path.join(OUT, "wiring.png")))
